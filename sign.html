@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爬虫系统 - 登录/注册</title>
+    <link rel="stylesheet" href="static/css/sign.css">
+</head>
+<body>
+    <div class="sign-container">
+        <h1>爬虫管理系统</h1>
+        
+        <div class="sign-grid">
+            <button id="login-tab-btn" class="tab-btn active" onclick="showTab('login')">登录</button>
+            <button id="register-tab-btn" class="tab-btn" onclick="showTab('register')">注册</button>
+            
+            <div id="login-panel" class="form-panel active">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-username">用户名</label>
+                        <input type="text" id="login-username" name="username" required placeholder="请输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">密码</label>
+                        <input type="password" id="login-password" name="password" required placeholder="请输入密码">
+                    </div>
+                    <button type="submit" class="btn btn-primary">登录</button>
+                </form>
+            </div>
+            
+            <div id="register-panel" class="form-panel">
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="register-username">用户名</label>
+                        <input type="text" id="register-username" name="username" required placeholder="请输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">密码</label>
+                        <input type="password" id="register-password" name="password" required placeholder="请输入密码（至少6位）">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password-confirm">重复密码</label>
+                        <input type="password" id="register-password-confirm" name="password_confirm" required placeholder="请再次输入密码">
+                    </div>
+                    <button type="submit" class="btn btn-primary">注册</button>
+                </form>
+            </div>
+        </div>
+        
+        <div id="message" class="message"></div>
+    </div>
+    
+    <script src="static/js/auth.js"></script>
+</body>
+</html>
