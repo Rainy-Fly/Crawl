@@ -196,3 +196,14 @@ class CrawlerResult:
         conn.close()
         
         return True
+    
+    @classmethod
+    def delete_by_task_id(cls, task_id):
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM crawler_results WHERE task_id = ?', (task_id,))
+        conn.commit()
+        conn.close()
+        
+        return True

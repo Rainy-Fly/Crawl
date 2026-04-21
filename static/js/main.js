@@ -106,6 +106,8 @@ document.addEventListener('DOMContentLoaded', function() {
         crawlerFile.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
+                // 自动填充文件名
+                document.getElementById('crawler-filename').value = file.name;
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     document.getElementById('crawler-json').value = event.target.result;
@@ -119,6 +121,8 @@ document.addEventListener('DOMContentLoaded', function() {
         timeFile.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
+                // 自动填充文件名
+                document.getElementById('time-filename').value = file.name;
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     document.getElementById('time-json').value = event.target.result;
@@ -132,11 +136,23 @@ document.addEventListener('DOMContentLoaded', function() {
 // 上传配置
 async function uploadConfig(type) {
     const textarea = document.getElementById(type + '-json');
+    const filenameInput = document.getElementById(type + '-filename');
     const content = textarea.value.trim();
+    let filename = filenameInput.value.trim();
     
     if (!content) {
         showMessage('请输入配置内容', 'error');
         return;
+    }
+    
+    // 如果没有输入文件名，使用默认名称
+    if (!filename) {
+        filename = type + '_config_' + Date.now() + '.json';
+    }
+    
+    // 确保文件名以 .json 结尾
+    if (!filename.endsWith('.json')) {
+        filename += '.json';
     }
     
     try {
@@ -156,7 +172,7 @@ async function uploadConfig(type) {
             body: JSON.stringify({
                 content: JSON.parse(content),
                 type: type,
-                name: type + '_config_' + Date.now() + '.json'
+                name: filename
             })
         });
         
@@ -165,6 +181,7 @@ async function uploadConfig(type) {
         if (data.success) {
             showMessage('上传成功！');
             textarea.value = '';
+            filenameInput.value = '';
         } else {
             showMessage(data.message || '上传失败', 'error');
         }
@@ -428,6 +445,8 @@ async function loadTaskList(status = '') {
                     <button onclick="saveResult(${task.id})" class="btn btn-small btn-success">保存</button>
                 `;
             }
+            // 所有状态的任务都可以删除
+            actions += `<button onclick="deleteTask(${task.id})" class="btn btn-small btn-danger">删除</button>`;
             
             return `
                 <div class="task-item">
@@ -507,6 +526,30 @@ async function stopTask(taskId) {
 
 function viewResult(taskId) {
     window.location.href = `show.html?task_id=${taskId}`;
+}
+
+// 删除任务
+async function deleteTask(taskId) {
+    if (!confirm('确定要删除这个任务吗？相关的爬虫结果也将被删除。')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/task/${taskId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage('任务删除成功！');
+            loadTaskList(currentTaskStatus);
+        } else {
+            showMessage(data.message || '删除失败', 'error');
+        }
+    } catch (error) {
+        showMessage('删除失败', 'error');
+    }
 }
 
 async function saveResult(taskId) {

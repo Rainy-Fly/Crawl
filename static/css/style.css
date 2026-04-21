@@ -621,6 +621,50 @@ body {
     line-height: 1.5;
 }
 
+/* 大模态框 */
+.modal-large {
+    max-width: 900px;
+    width: 95%;
+}
+
+.modal-large .modal-body {
+    max-height: 70vh;
+}
+
+/* 大文本框 */
+.large-textarea {
+    width: 100%;
+    min-height: 300px;
+    max-height: 500px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    resize: vertical;
+}
+
+.large-editor {
+    width: 100%;
+    min-height: 400px;
+    max-height: 600px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    resize: vertical;
+    background: #fafafa;
+}
+
+.large-editor:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+}
+
 .modal-footer {
     padding: 20px;
     border-top: 1px solid #eee;

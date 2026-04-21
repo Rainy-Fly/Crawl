@@ -345,6 +345,27 @@ def stop_task(task_id):
     task.stop()
     return jsonify({'success': True, 'message': '任务已停止'})
 
+@app.route('/api/task/<int:task_id>', methods=['DELETE'])
+@login_required
+def delete_task(task_id):
+    user_id = session['user_id']
+    task = CrawlerTask.get_by_id(task_id)
+    
+    if not task or task.user_id != user_id:
+        return jsonify({'success': False, 'message': '任务不存在'})
+    
+    # 如果任务正在运行，先停止它
+    if task.status == '进行中':
+        crawler_service.stop_task(task_id)
+    
+    # 删除相关的爬虫结果
+    CrawlerResult.delete_by_task_id(task_id)
+    
+    # 删除任务
+    CrawlerTask.delete_by_id(task_id)
+    
+    return jsonify({'success': True, 'message': '任务已删除'})
+
 # ========== 爬虫结果路由 ==========
 
 @app.route('/api/result/list', methods=['GET'])
