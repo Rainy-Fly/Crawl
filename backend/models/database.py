@@ -62,6 +62,42 @@ def init_db():
         )
     ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS ai_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            config_type VARCHAR(20) NOT NULL,
+            base_url VARCHAR(500),
+            api_key VARCHAR(500),
+            model_name VARCHAR(100),
+            is_default BOOLEAN DEFAULT 0,
+            create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            update_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS visualizations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            result_id INTEGER NOT NULL,
+            name VARCHAR(200) NOT NULL,
+            wordcloud TEXT,
+            sentiment_pie TEXT,
+            category_bar TEXT,
+            keyword_bar TEXT,
+            stats_chart TEXT,
+            timeline TEXT,
+            analysis_type VARCHAR(50),
+            model_type VARCHAR(50),
+            create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (result_id) REFERENCES crawler_results (id)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 

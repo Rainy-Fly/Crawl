@@ -441,7 +441,7 @@ async function loadTaskList(status = '') {
                 `;
             } else if (task.status === '已完成') {
                 actions = `
-                    <button onclick="viewResult(${task.id})" class="btn btn-small btn-info">可视化</button>
+                    <button onclick="viewResult(${task.id})" class="btn btn-small btn-info">查看</button>
                     <button onclick="saveResult(${task.id})" class="btn btn-small btn-success">保存</button>
                 `;
             }
@@ -525,7 +525,7 @@ async function stopTask(taskId) {
 }
 
 function viewResult(taskId) {
-    window.location.href = `show.html?task_id=${taskId}`;
+    window.location.href = `check.html?task_id=${taskId}`;
 }
 
 // 删除任务
@@ -618,7 +618,7 @@ async function loadResultList(isSaved) {
 }
 
 function viewResultDetail(resultId) {
-    window.location.href = `show.html?result_id=${resultId}`;
+    window.location.href = `check.html?result_id=${resultId}`;
 }
 
 async function saveResultById(resultId) {

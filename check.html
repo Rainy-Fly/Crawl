@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爬虫系统 - 查看结果</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>爬虫结果查看</h1>
+        <div class="user-info">
+            <span id="username"></span>
+            <button onclick="location.href='index.html'" class="btn btn-secondary">返回主页</button>
+            <button onclick="logout()" class="btn btn-secondary">退出</button>
+        </div>
+    </div>
+    
+    <div class="show-container">
+        <!-- 左侧结果列表 -->
+        <div class="result-sidebar">
+            <h3>爬虫结果列表</h3>
+            
+            <div class="result-category">
+                <h4>已保存的结果</h4>
+                <div id="saved-results" class="result-scroll">
+                    <!-- 已保存结果列表 -->
+                </div>
+            </div>
+            
+            <div class="result-category">
+                <h4>临时结果</h4>
+                <div id="temp-results" class="result-scroll">
+                    <!-- 临时结果列表 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧查看区域 -->
+        <div class="visualization-area">
+            <div id="empty-state" class="empty-state">
+                <p>请从左侧选择一个爬虫结果进行查看</p>
+            </div>
+            
+            <div id="visualization-content" style="display:none;">
+                <div class="viz-header">
+                    <h2 id="result-title">爬虫结果详情</h2>
+                    <div class="viz-actions">
+                        <button onclick="showRawData()" class="btn btn-info">原始数据</button>
+                        <button onclick="showTableView()" class="btn btn-info">表格视图</button>
+                        <button onclick="showChartView()" class="btn btn-info">图表视图</button>
+                        <button onclick="exportData()" class="btn btn-secondary">导出JSON</button>
+                    </div>
+                </div>
+                
+                <div class="viz-stats">
+                    <div class="stat-card">
+                        <span class="stat-label">爬取URL数</span>
+                        <span id="stat-urls" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">成功数</span>
+                        <span id="stat-success" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">失败数</span>
+                        <span id="stat-failed" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">数据条目</span>
+                        <span id="stat-items" class="stat-value">0</span>
+                    </div>
+                </div>
+                
+                <div class="viz-content">
+                    <!-- 原始数据视图 -->
+                    <div id="raw-view" class="view-section">
+                        <pre id="raw-json"></pre>
+                    </div>
+                    
+                    <!-- 表格视图 -->
+                    <div id="table-view" class="view-section" style="display:none;">
+                        <div class="table-container">
+                            <table id="data-table">
+                                <thead></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 图表视图 -->
+                    <div id="chart-view" class="view-section" style="display:none;">
+                        <div class="chart-container">
+                            <canvas id="data-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 消息提示 -->
+    <div id="message" class="message"></div>
+    
+    <script src="static/js/check.js"></script>
+</body>
+</html>

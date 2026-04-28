@@ -8,8 +8,10 @@ import uuid
 import threading
 import time
 
-from models import init_db, User, ConfigFile, CrawlerTask, CrawlerResult
+from models import init_db, User, ConfigFile, CrawlerTask, CrawlerResult, AIConfig, Visualization
 from services.crawler_service import CrawlerService
+from call_ai import analyze_crawler_data
+from show import visualize_data
 
 # 获取项目根目录
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -270,7 +272,7 @@ def create_task():
 def list_tasks():
     user_id = session['user_id']
     status = request.args.get('status')
-    
+
     tasks = CrawlerTask.get_by_user(user_id, status)
     return jsonify({
         'success': True,
@@ -457,6 +459,359 @@ def get_demo_config():
         return send_from_directory(BASE_DIR, 'crawl_demo_config.json')
     else:
         return send_from_directory(BASE_DIR, 'time_demo_config.json')
+
+
+# ========== AI配置路由 ==========
+
+@app.route('/api/ai-config/list', methods=['GET'])
+@login_required
+def list_ai_configs():
+    """获取用户的AI配置列表"""
+    user_id = session['user_id']
+    configs = AIConfig.get_by_user(user_id)
+    
+    return jsonify({
+        'success': True,
+        'configs': [config.to_dict() for config in configs]
+    })
+
+
+@app.route('/api/ai-config/<int:config_id>', methods=['GET'])
+@login_required
+def get_ai_config(config_id):
+    """获取单个AI配置"""
+    user_id = session['user_id']
+    config = AIConfig.get_by_id(config_id)
+    
+    if not config or config.user_id != user_id:
+        return jsonify({'success': False, 'message': '配置不存在'})
+    
+    return jsonify({
+        'success': True,
+        'config': config.to_dict(include_api_key=True)
+    })
+
+
+@app.route('/api/ai-config/create', methods=['POST'])
+@login_required
+def create_ai_config():
+    """创建新的AI配置"""
+    user_id = session['user_id']
+    data = request.get_json()
+    
+    name = data.get('name')
+    config_type = data.get('config_type', 'api')
+    base_url = data.get('base_url')
+    api_key = data.get('api_key')
+    model_name = data.get('model_name')
+    is_default = data.get('is_default', False)
+    
+    if not name:
+        return jsonify({'success': False, 'message': '配置名称不能为空'})
+    
+    if config_type == 'api' and not base_url:
+        return jsonify({'success': False, 'message': 'API配置需要Base URL'})
+    
+    try:
+        config = AIConfig.create(
+            user_id=user_id,
+            name=name,
+            config_type=config_type,
+            base_url=base_url,
+            api_key=api_key,
+            model_name=model_name,
+            is_default=is_default
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '配置创建成功',
+            'config': config.to_dict()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'创建配置失败: {str(e)}'})
+
+
+@app.route('/api/ai-config/<int:config_id>', methods=['PUT'])
+@login_required
+def update_ai_config(config_id):
+    """更新AI配置"""
+    user_id = session['user_id']
+    config = AIConfig.get_by_id(config_id)
+    
+    if not config or config.user_id != user_id:
+        return jsonify({'success': False, 'message': '配置不存在'})
+    
+    data = request.get_json()
+    
+    name = data.get('name')
+    config_type = data.get('config_type')
+    base_url = data.get('base_url')
+    api_key = data.get('api_key')
+    model_name = data.get('model_name')
+    is_default = data.get('is_default')
+    
+    try:
+        config.update(
+            name=name,
+            config_type=config_type,
+            base_url=base_url,
+            api_key=api_key,
+            model_name=model_name,
+            is_default=is_default
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '配置更新成功',
+            'config': config.to_dict()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'更新配置失败: {str(e)}'})
+
+
+@app.route('/api/ai-config/<int:config_id>', methods=['DELETE'])
+@login_required
+def delete_ai_config(config_id):
+    """删除AI配置"""
+    user_id = session['user_id']
+    config = AIConfig.get_by_id(config_id)
+    
+    if not config or config.user_id != user_id:
+        return jsonify({'success': False, 'message': '配置不存在'})
+    
+    try:
+        AIConfig.delete(config_id)
+        return jsonify({'success': True, 'message': '配置已删除'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'删除配置失败: {str(e)}'})
+
+
+@app.route('/api/ai-config/<int:config_id>/set-default', methods=['POST'])
+@login_required
+def set_default_ai_config(config_id):
+    """设置默认AI配置"""
+    user_id = session['user_id']
+    config = AIConfig.get_by_id(config_id)
+    
+    if not config or config.user_id != user_id:
+        return jsonify({'success': False, 'message': '配置不存在'})
+    
+    try:
+        AIConfig.set_default(user_id, config_id)
+        return jsonify({'success': True, 'message': '默认配置已设置'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'设置默认配置失败: {str(e)}'})
+
+
+# ========== 可视化路由 ==========
+
+@app.route('/api/visualization/generate', methods=['POST'])
+@login_required
+def generate_visualization():
+    """生成数据可视化"""
+    user_id = session['user_id']
+    data = request.get_json()
+    
+    result_id = data.get('result_id')
+    analysis_type = data.get('analysis_type', 'general')
+    model_type = data.get('model_type', 'local')  # 'local' 或 'api'
+    config_id = data.get('config_id')  # API配置ID
+    
+    print(f"\n[DEBUG] ========== 开始生成可视化 ==========")
+    print(f"[DEBUG] 用户ID: {user_id}")
+    print(f"[DEBUG] 结果ID: {result_id}")
+    print(f"[DEBUG] 分析类型: {analysis_type}")
+    print(f"[DEBUG] 模型类型: {model_type}")
+    print(f"[DEBUG] 配置ID: {config_id}")
+    
+    if not result_id:
+        return jsonify({'success': False, 'message': '请选择爬虫结果'})
+    
+    # 获取爬虫结果
+    result = CrawlerResult.get_by_id(result_id)
+    if not result:
+        return jsonify({'success': False, 'message': '结果不存在'})
+    
+    task = CrawlerTask.get_by_id(result.task_id)
+    if not task or task.user_id != user_id:
+        return jsonify({'success': False, 'message': '无权访问'})
+    
+    try:
+        # 获取原始数据
+        crawler_data = result.get_content_dict()
+        print(f"[DEBUG] 爬虫数据条数: {len(crawler_data) if isinstance(crawler_data, list) else 1}")
+        print(f"[DEBUG] 爬虫数据样本: {str(crawler_data)[:200]}...")
+        
+        # 准备AI配置
+        ai_config = None
+        if model_type == 'api':
+            print(f"[DEBUG] 使用API模式，准备AI配置...")
+            if config_id:
+                # 使用指定的配置
+                ai_config_obj = AIConfig.get_by_id(config_id)
+                if ai_config_obj and ai_config_obj.user_id == user_id:
+                    ai_config = ai_config_obj.to_dict(include_api_key=True)
+                    print(f"[DEBUG] 使用指定配置ID={config_id}")
+                    print(f"[DEBUG] 配置名称: {ai_config.get('name')}")
+                    print(f"[DEBUG] Base URL: {ai_config.get('base_url')}")
+                    print(f"[DEBUG] 模型名称: {ai_config.get('model_name')}")
+                    print(f"[DEBUG] API Key存在: {bool(ai_config.get('api_key'))}")
+                    if ai_config.get('api_key'):
+                        print(f"[DEBUG] API Key前10位: {ai_config.get('api_key')[:10]}...")
+                else:
+                    print(f"[ERROR] API配置不存在或无权访问")
+                    return jsonify({'success': False, 'message': 'API配置不存在'})
+            else:
+                # 使用默认配置
+                print(f"[DEBUG] 未指定配置ID，尝试获取默认配置...")
+                default_config = AIConfig.get_default_by_user(user_id)
+                if default_config:
+                    ai_config = default_config.to_dict(include_api_key=True)
+                    print(f"[DEBUG] 使用默认配置ID={default_config.id}")
+                    print(f"[DEBUG] 配置名称: {ai_config.get('name')}")
+                    print(f"[DEBUG] Base URL: {ai_config.get('base_url')}")
+                    print(f"[DEBUG] 模型名称: {ai_config.get('model_name')}")
+                    print(f"[DEBUG] API Key存在: {bool(ai_config.get('api_key'))}")
+                else:
+                    print(f"[ERROR] 未找到默认配置")
+                    return jsonify({'success': False, 'message': '请先配置API'})
+        else:
+            print(f"[DEBUG] 使用本地模型模式")
+        
+        print(f"[DEBUG] 开始调用AI模型进行数据分析...")
+        # 调用AI模型进行数据分析
+        ai_result = analyze_crawler_data(crawler_data, analysis_type, ai_config)
+        
+        print(f"[DEBUG] AI分析结果状态: {ai_result.get('success')}")
+        if not ai_result['success']:
+            print(f"[ERROR] AI分析失败: {ai_result.get('error')}")
+            return jsonify({'success': False, 'message': f"AI分析失败: {ai_result.get('error', '未知错误')}"})
+        
+        print(f"[DEBUG] AI分析成功，数据键: {list(ai_result['data'].keys()) if isinstance(ai_result['data'], dict) else '非字典类型'}")
+        print(f"[DEBUG] AI结果数据样本: {str(ai_result['data'])[:300]}...")
+        
+        print(f"[DEBUG] 开始生成可视化图表...")
+        # 生成可视化
+        visualization = visualize_data(ai_result['data'])
+        
+        print(f"[DEBUG] 可视化生成完成，图表数量: {len([v for v in visualization.values() if v])}")
+        print(f"[DEBUG] ========== 生成可视化完成 ==========\n")
+        
+        return jsonify({
+            'success': True,
+            'visualization': visualization,
+            'analysis_data': ai_result['data']
+        })
+    except Exception as e:
+        print(f"[ERROR] 生成可视化失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f"生成可视化失败: {str(e)}"})
+
+
+@app.route('/api/visualization/save', methods=['POST'])
+@login_required
+def save_visualization():
+    """保存可视化记录"""
+    try:
+        data = request.json
+        user_id = session['user_id']
+        
+        result_id = data.get('result_id')
+        name = data.get('name', f'可视化_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
+        visualization_data = data.get('visualization_data', {})
+        analysis_type = data.get('analysis_type', 'general')
+        model_type = data.get('model_type', 'local')
+        
+        if not result_id:
+            return jsonify({'success': False, 'message': '缺少结果ID'})
+        
+        # 创建可视化记录
+        viz = Visualization.create(
+            user_id=user_id,
+            result_id=result_id,
+            name=name,
+            visualization_data=visualization_data,
+            analysis_type=analysis_type,
+            model_type=model_type
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '可视化保存成功',
+            'visualization': viz.to_dict()
+        })
+    except Exception as e:
+        print(f"[ERROR] 保存可视化失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f"保存失败: {str(e)}"})
+
+
+@app.route('/api/visualization/list', methods=['GET'])
+@login_required
+def list_visualizations():
+    """获取用户的可视化列表"""
+    try:
+        user_id = session['user_id']
+        result_id = request.args.get('result_id', type=int)
+        
+        if result_id:
+            visualizations = Visualization.get_by_result(result_id, user_id)
+        else:
+            visualizations = Visualization.get_by_user(user_id)
+        
+        return jsonify({
+            'success': True,
+            'visualizations': [v.to_dict() for v in visualizations]
+        })
+    except Exception as e:
+        print(f"[ERROR] 获取可视化列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': f"获取列表失败: {str(e)}"})
+
+
+@app.route('/api/visualization/<int:viz_id>', methods=['GET'])
+@login_required
+def get_visualization(viz_id):
+    """获取单个可视化详情"""
+    try:
+        user_id = session['user_id']
+        viz = Visualization.get_by_id(viz_id)
+        
+        if not viz or viz.user_id != user_id:
+            return jsonify({'success': False, 'message': '可视化记录不存在'})
+        
+        return jsonify({
+            'success': True,
+            'visualization': viz.to_dict()
+        })
+    except Exception as e:
+        print(f"[ERROR] 获取可视化详情失败: {str(e)}")
+        return jsonify({'success': False, 'message': f"获取详情失败: {str(e)}"})
+
+
+@app.route('/api/visualization/<int:viz_id>', methods=['DELETE'])
+@login_required
+def delete_visualization(viz_id):
+    """删除可视化记录"""
+    try:
+        user_id = session['user_id']
+        viz = Visualization.get_by_id(viz_id)
+        
+        if not viz or viz.user_id != user_id:
+            return jsonify({'success': False, 'message': '可视化记录不存在'})
+        
+        viz.delete()
+        
+        return jsonify({
+            'success': True,
+            'message': '可视化已删除'
+        })
+    except Exception as e:
+        print(f"[ERROR] 删除可视化失败: {str(e)}")
+        return jsonify({'success': False, 'message': f"删除失败: {str(e)}"})
+
 
 if __name__ == '__main__':
     init_db()
