@@ -1,0 +1,25 @@
+{
+  "type": "time",
+  "name": "示例时间配置",
+  "description": "这是一个示例时间配置文件，用于配置爬虫定时执行",
+  "cron": "0 9 * * *",
+  "timezone": "Asia/Shanghai",
+  "enabled": true,
+  "schedules": [
+    {
+      "name": "每天早上9点执行",
+      "cron": "0 9 * * *",
+      "description": "每天上午9:00自动执行爬虫任务"
+    },
+    {
+      "name": "每小时执行",
+      "cron": "0 * * * *",
+      "description": "每小时的整点执行爬虫任务"
+    },
+    {
+      "name": "每周一执行",
+      "cron": "0 9 * * 1",
+      "description": "每周一上午9:00执行爬虫任务"
+    }
+  ]
+}
