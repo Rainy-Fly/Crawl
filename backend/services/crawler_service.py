@@ -113,6 +113,96 @@ class CrawlerService:
         
         return True
     
+    def _extract_data_recursive(self, element, selectors):
+        """
+        递归提取数据，支持无限层级嵌套结构
+        
+        配置格式示例:
+        {
+            "articles": {
+                "_selector": ".article",           # 必需：CSS选择器定位列表项
+                "_multiple": true,                  # 可选：是否返回列表（默认为true）
+                "title": ".header h1",              # 简单字段提取
+                "content": {                        # 嵌套对象提取
+                    "text": ".content p",
+                    "images": {
+                        "_selector": "img",
+                        "_multiple": true,
+                        "src": "@src",                # @属性 语法提取属性值
+                        "alt": "@alt"
+                    }
+                }
+            }
+        }
+        """
+        result = {}
+        
+        for key, selector_config in selectors.items():
+            print(f"[DEBUG] Processing key: {key}, config: {selector_config}")
+            
+            # 字符串类型：简单选择器，提取文本
+            if isinstance(selector_config, str):
+                try:
+                    # @属性 语法提取属性值
+                    if selector_config.startswith('@'):
+                        attr_name = selector_config[1:]
+                        if hasattr(element, 'get'):
+                            result[key] = element.get(attr_name, '')
+                        else:
+                            result[key] = ''
+                    else:
+                        # 普通选择器提取文本
+                        elements = element.select(selector_config) if hasattr(element, 'select') else []
+                        result[key] = [elem.get_text(strip=True) for elem in elements]
+                except Exception as e:
+                    print(f"[ERROR] Error extracting '{key}' with selector '{selector_config}': {e}")
+                    result[key] = []
+            
+            # 字典类型：可能是列表项配置或嵌套对象
+            elif isinstance(selector_config, dict):
+                # 检查是否有 _selector，表示这是一个列表项配置
+                list_selector = selector_config.get('_selector')
+                is_multiple = selector_config.get('_multiple', True)
+                
+                if list_selector:
+                    # 列表项提取模式
+                    try:
+                        items = element.select(list_selector) if hasattr(element, 'select') else []
+                        print(f"[DEBUG] Found {len(items)} items for selector '{list_selector}'")
+                        
+                        extracted_items = []
+                        for item in items:
+                            # 递归提取每个列表项的字段
+                            item_data = {}
+                            for field_key, field_config in selector_config.items():
+                                if field_key.startswith('_'):  # 跳过元数据字段
+                                    continue
+                                
+                                # 递归处理每个字段
+                                field_result = self._extract_data_recursive(item, {field_key: field_config})
+                                item_data.update(field_result)
+                            
+                            if item_data:
+                                extracted_items.append(item_data)
+                        
+                        result[key] = extracted_items if is_multiple else (extracted_items[0] if extracted_items else {})
+                    except Exception as e:
+                        print(f"[ERROR] Error extracting list '{key}': {e}")
+                        result[key] = [] if is_multiple else {}
+                else:
+                    # 普通嵌套对象模式
+                    nested_result = {}
+                    for nested_key, nested_config in selector_config.items():
+                        nested_data = self._extract_data_recursive(element, {nested_key: nested_config})
+                        nested_result.update(nested_data)
+                    result[key] = nested_result
+            
+            else:
+                print(f"[ERROR] Unknown selector type for key '{key}': {type(selector_config)}")
+                result[key] = None
+        
+        return result
+
     def _run_crawler(self, task_id, config):
         """执行爬虫"""
         print(f"[DEBUG] _run_crawler started for task {task_id}")
@@ -221,40 +311,7 @@ class CrawlerService:
                     print(f"[DEBUG] Page title: {page_data['title']}")
                     
                     print(f"[DEBUG] Processing selectors: {selectors}")
-                    for key, selector in selectors.items():
-                        print(f"[DEBUG] Selector key: {key}, selector: {selector}")
-                        print(f"[DEBUG] Selector type: {type(selector)}")
-                        
-                        # 处理嵌套选择器（如 book_info: {author: ".info a"}）
-                        if isinstance(selector, dict):
-                            print(f"[DEBUG] Nested selector detected for key: {key}")
-                            nested_data = {}
-                            for nested_key, nested_selector in selector.items():
-                                if isinstance(nested_selector, str):
-                                    try:
-                                        elements = soup.select(nested_selector)
-                                        print(f"[DEBUG] Found {len(elements)} elements for nested selector '{nested_selector}'")
-                                        nested_data[nested_key] = [elem.get_text(strip=True) for elem in elements]
-                                    except Exception as nested_error:
-                                        print(f"[ERROR] Error with nested selector '{nested_selector}': {nested_error}")
-                                        nested_data[nested_key] = []
-                                else:
-                                    nested_data[nested_key] = []
-                            page_data['data'][key] = nested_data
-                        elif isinstance(selector, str):
-                            # 简单选择器
-                            try:
-                                elements = soup.select(selector)
-                                print(f"[DEBUG] Found {len(elements)} elements for selector '{selector}'")
-                                page_data['data'][key] = [elem.get_text(strip=True) for elem in elements]
-                            except Exception as selector_error:
-                                print(f"[ERROR] Error with selector '{selector}': {selector_error}")
-                                import traceback
-                                print(traceback.format_exc())
-                                page_data['data'][key] = []
-                        else:
-                            print(f"[ERROR] Unknown selector type: {type(selector)}")
-                            page_data['data'][key] = []
+                    page_data['data'] = self._extract_data_recursive(soup, selectors)
                     
                     results.append(page_data)
                     pages_crawled += 1
